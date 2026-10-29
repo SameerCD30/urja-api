@@ -1,0 +1,365 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Urja Meter Ops API",
+    "version": "1.0.0",
+    "description": "A clean REST API over the Urja Meter Ops legacy portal. Exposes smart-meter data, distribution transformer information, and the full network hierarchy without requiring any interaction with the original web portal."
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Local development" }
+  ],
+  "paths": {
+    "/api/meters": {
+      "get": {
+        "summary": "List meters",
+        "description": "Returns a paginated list of meters. Optionally filter by meter ID or serial number.",
+        "operationId": "listMeters",
+        "tags": ["Meters"],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query — meter ID or serial number (partial match)",
+            "required": false,
+            "schema": { "type": "string", "example": "J1000" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (1-based)",
+            "required": false,
+            "schema": { "type": "integer", "default": 1, "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of meters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeterList" },
+                "example": {
+                  "total": 403,
+                  "page": 1,
+                  "totalPages": 3,
+                  "meters": [
+                    {
+                      "id": "J100001",
+                      "serial": "GE84132",
+                      "make": "L&T",
+                      "phase": "single",
+                      "status": "Installed",
+                      "dt": "DT-002"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/api/meters/all": {
+      "get": {
+        "summary": "Export all meters",
+        "description": "Returns all 403 meters in a single response. Each meter includes geo coordinates and a full hierarchy object. Useful for building maps or running local queries.",
+        "operationId": "exportAllMeters",
+        "tags": ["Meters"],
+        "responses": {
+          "200": {
+            "description": "All meters with full detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeterExportList" }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/api/meters/{id}": {
+      "get": {
+        "summary": "Get a single meter",
+        "description": "Returns full detail for one meter including installation parameters and network hierarchy.",
+        "operationId": "getMeter",
+        "tags": ["Meters"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Meter ID, e.g. J100001",
+            "schema": { "type": "string", "example": "J100001" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meter detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeterDetail" }
+              }
+            }
+          },
+          "404": {
+            "description": "Meter not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/api/transformers": {
+      "get": {
+        "summary": "List distribution transformers",
+        "operationId": "listTransformers",
+        "tags": ["Transformers"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 1, "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of transformers",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransformerList" },
+                "example": {
+                  "total": 50,
+                  "page": 1,
+                  "totalPages": 2,
+                  "transformers": [
+                    {
+                      "id": "DT-001",
+                      "name": "Malviya Nagar DT 1",
+                      "feeder": "F-001",
+                      "capacityKva": 100
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/api/transformers/{id}": {
+      "get": {
+        "summary": "Get a single transformer",
+        "operationId": "getTransformer",
+        "tags": ["Transformers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Transformer code, e.g. DT-001",
+            "schema": { "type": "string", "example": "DT-001" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transformer detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransformerDetail" }
+              }
+            }
+          },
+          "404": { "description": "Transformer not found" },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/api/hierarchy": {
+      "get": {
+        "summary": "Full network hierarchy",
+        "description": "Returns the complete network tree: Zone → Circle → Division → Subdivision → Substation → Feeder → DT → Meters. Built from the bulk meter export.",
+        "operationId": "getHierarchy",
+        "tags": ["Hierarchy"],
+        "responses": {
+          "200": {
+            "description": "Network hierarchy tree",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Hierarchy" }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/PortalError" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is running",
+            "content": {
+              "application/json": {
+                "example": { "status": "ok" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Meter": {
+        "type": "object",
+        "properties": {
+          "id":     { "type": "string", "example": "J100001" },
+          "serial": { "type": "string", "example": "GE84132" },
+          "make":   { "type": "string", "example": "L&T" },
+          "phase":  { "type": "string", "enum": ["single", "three"] },
+          "status": { "type": "string", "enum": ["Installed", "Faulty", "Decommissioned"] },
+          "dt":     { "type": "string", "example": "DT-002" }
+        }
+      },
+      "MeterList": {
+        "type": "object",
+        "properties": {
+          "total":      { "type": "integer" },
+          "page":       { "type": "integer" },
+          "totalPages": { "type": "integer" },
+          "meters":     { "type": "array", "items": { "$ref": "#/components/schemas/Meter" } }
+        }
+      },
+      "MeterExport": {
+        "type": "object",
+        "properties": {
+          "id":          { "type": "string" },
+          "serial":      { "type": "string" },
+          "make":        { "type": "string" },
+          "phase":       { "type": "string" },
+          "status":      { "type": "string" },
+          "installType": { "type": "string" },
+          "build":       { "type": "string" },
+          "dt":          { "type": "string" },
+          "hierarchy":   { "$ref": "#/components/schemas/HierarchyRef" },
+          "geo": {
+            "type": "object",
+            "properties": {
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            }
+          }
+        }
+      },
+      "MeterExportList": {
+        "type": "object",
+        "properties": {
+          "total":  { "type": "integer" },
+          "meters": { "type": "array", "items": { "$ref": "#/components/schemas/MeterExport" } }
+        }
+      },
+      "MeterDetail": {
+        "type": "object",
+        "properties": {
+          "id":          { "type": "string" },
+          "serial":      { "type": "string" },
+          "make":        { "type": "string" },
+          "phase":       { "type": "string" },
+          "status":      { "type": "string" },
+          "installType": { "type": "string" },
+          "hierarchy":   { "$ref": "#/components/schemas/HierarchyRef" }
+        }
+      },
+      "HierarchyRef": {
+        "type": "object",
+        "description": "Network location of the meter",
+        "properties": {
+          "zone":        { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "circle":      { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "division":    { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "subdivision": { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "substation":  { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "feeder":      { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } },
+          "dt":          { "type": "object", "properties": { "code": { "type": "string" }, "name": { "type": "string" } } }
+        }
+      },
+      "Transformer": {
+        "type": "object",
+        "properties": {
+          "id":          { "type": "string", "example": "DT-001" },
+          "name":        { "type": "string", "example": "Malviya Nagar DT 1" },
+          "feeder":      { "type": "string", "example": "F-001" },
+          "capacityKva": { "type": "number", "example": 100 }
+        }
+      },
+      "TransformerList": {
+        "type": "object",
+        "properties": {
+          "total":        { "type": "integer" },
+          "page":         { "type": "integer" },
+          "totalPages":   { "type": "integer" },
+          "transformers": { "type": "array", "items": { "$ref": "#/components/schemas/Transformer" } }
+        }
+      },
+      "TransformerDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Transformer" },
+          {
+            "type": "object",
+            "properties": {
+              "meters": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        ]
+      },
+      "Hierarchy": {
+        "type": "object",
+        "properties": {
+          "zones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code":    { "type": "string" },
+                "name":    { "type": "string" },
+                "circles": { "type": "array", "items": { "type": "object" } }
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "PortalError": {
+        "description": "The upstream portal returned an error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "Meters",       "description": "Smart meter endpoints" },
+    { "name": "Transformers", "description": "Distribution transformer endpoints" },
+    { "name": "Hierarchy",    "description": "Full network hierarchy" },
+    { "name": "System",       "description": "Service health" }
+  ]
+}
